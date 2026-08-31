@@ -1,0 +1,92 @@
+# tui-tools headscale mirror: build headscale FROM SOURCE (checked out under
+# src/ at the pinned upstream tag) and release it with our own checksums, SBOM,
+# keyless cosign signature and build provenance. We attest OUR build of the
+# source, never re-sign an opaque upstream binary.
+version: 2
+project_name: headscale
+builds:
+  - id: headscale
+    dir: src
+    main: ./cmd/headscale
+    binary: headscale
+    env: [CGO_ENABLED=0]
+    goos: [linux]
+    goarch: [amd64, arm64]
+    flags: [-buildmode=pie, -trimpath]
+    ldflags:
+      - -X main.version={{ .Version }}
+archives:
+  - id: headscale
+    formats: [tar.gz]
+    name_template: "headscale_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+checksum:
+  name_template: checksums.txt
+nfpms:
+  - id: headscale
+    package_name: headscale
+    vendor: tui-tools
+    maintainer: tui-tools <pkgs@tui.tools>
+    homepage: https://github.com/juanfont/headscale
+    license: BSD-3-Clause
+    description: |-
+      Open source implementation of the Tailscale control server (headscale).
+      Built from source and re-released by the tui-tools family under its own
+      signature for the tui-router coordination server. Managed by tui-vpn.
+    section: net
+    priority: optional
+    bindir: /usr/bin
+    formats: [deb, rpm, archlinux]
+    contents:
+      - src: ./src/config-example.yaml
+        dst: /etc/headscale/config.yaml
+        type: "config|noreplace"
+        file_info: { mode: 0644 }
+      - src: ./src/packaging/systemd/headscale.service
+        dst: /usr/lib/systemd/system/headscale.service
+      - src: ./src/config-example.yaml
+        dst: /usr/share/doc/headscale/examples/config-example.yaml
+      - src: ./src/LICENSE
+        dst: /usr/share/doc/headscale/copyright
+      - dst: /var/lib/headscale
+        type: dir
+        file_info: { mode: 0750 }
+    scripts:
+      postinstall: ./packaging/postinstall.sh
+      preremove: ./packaging/preremove.sh
+      postremove: ./packaging/postremove.sh
+sboms:
+  - id: archive
+    artifacts: archive
+    documents:
+      - "${artifact}.cyclonedx.json"
+    cmd: syft
+    args:
+      - "$artifact"
+      - --output
+      - cyclonedx-json=$document
+# Keyless signing: cosign takes its identity from the workflow's OIDC token, so
+# there is no key to hold or leak. Only checksums.txt is signed -- it names every
+# archive and package with its digest, so one signature covers the release. The
+# output is a Sigstore bundle, which is what `cosign verify-blob --bundle` and
+# the tui-tools pkgs provenance gate read.
+signs:
+  - id: checksums
+    cmd: cosign
+    args:
+      - sign-blob
+      - --yes
+      - --bundle
+      - "${signature}"
+      - "${artifact}"
+    artifacts: checksum
+    signature: "${artifact}.sigstore.json"
+    output: true
+release:
+  github:
+    owner: tui-tools
+    name: headscale
+  # A mirror release note: what upstream tag this build compiled.
+  header: |
+    A tui-tools mirror of headscale {{ .Tag }}, built from the upstream source
+    at that tag and re-released with our own checksums, SBOM, keyless cosign
+    signature and build provenance. Not affiliated with the headscale project.

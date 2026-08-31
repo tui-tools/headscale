@@ -1,0 +1,12 @@
+# Keep the pinned GitHub Actions current; the family runs Dependabot on every
+# repo. headscale's own Go dependencies are upstream's concern, tracked by the
+# version bump of VERSION, not here.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]

@@ -1,0 +1,37 @@
+# Watch upstream headscale for a new release and open a PR bumping VERSION. A
+# human merges it, which is the signal to tag a mirror release. Read-only
+# against upstream; opens a PR, never pushes to main.
+name: bump
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: check upstream and open a bump PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          latest="$(gh release view -R juanfont/headscale --json tagName -q .tagName)"
+          pinned="$(tr -d '[:space:]' < VERSION)"
+          if [ "$latest" = "$pinned" ]; then
+            echo "up to date at $pinned"; exit 0
+          fi
+          branch="bump-headscale-$latest"
+          git config user.name "tui-tools-bot"
+          git config user.email "bot@tui.tools"
+          git checkout -b "$branch"
+          printf '%s\n' "$latest" > VERSION
+          git add VERSION
+          git commit -m "bump headscale $pinned -> $latest"
+          git push -u origin "$branch"
+          gh pr create --title "bump headscale $pinned -> $latest" \
+            --body "Upstream headscale released \`$latest\`. Merging this and tagging \`$latest\` cuts a mirror release built from that source." \
+            --base main --head "$branch"
