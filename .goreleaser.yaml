@@ -24,6 +24,7 @@ checksum:
 nfpms:
   - id: headscale
     package_name: headscale
+    file_name_template: "{{ .ConventionalFileName }}"
     vendor: tui-tools
     maintainer: tui-tools <pkgs@tui.tools>
     homepage: https://github.com/juanfont/headscale
