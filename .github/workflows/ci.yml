@@ -26,7 +26,10 @@ jobs:
         run: scripts/vendor-headscale.sh
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: src/go.mod
+          # The current stable Go, NOT the tag's go.mod: stdlib CVEs are fixed
+          # by the toolchain, and the vendored tag pins an older one. The
+          # binary we attest must carry the patched stdlib.
+          go-version: stable
           check-latest: true
       - name: harden the dependency floor
         run: scripts/harden-deps.sh
@@ -69,7 +72,10 @@ jobs:
         run: scripts/vendor-headscale.sh
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: src/go.mod
+          # The current stable Go, NOT the tag's go.mod: stdlib CVEs are fixed
+          # by the toolchain, and the vendored tag pins an older one. The
+          # binary we attest must carry the patched stdlib.
+          go-version: stable
           check-latest: true
       - name: harden the dependency floor
         run: scripts/harden-deps.sh
