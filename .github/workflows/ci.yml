@@ -28,6 +28,8 @@ jobs:
         with:
           go-version-file: src/go.mod
           check-latest: true
+      - name: harden the dependency floor
+        run: scripts/harden-deps.sh
       - uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
         with:
           version: "~> v2"
@@ -69,6 +71,8 @@ jobs:
         with:
           go-version-file: src/go.mod
           check-latest: true
+      - name: harden the dependency floor
+        run: scripts/harden-deps.sh
       # syft for the sboms section, cosign for the signs section: both are called
       # by GoReleaser and have to be on PATH before it runs.
       - uses: anchore/sbom-action/download-syft@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
