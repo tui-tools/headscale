@@ -25,6 +25,16 @@ repositories through the same gate as any tool — with no exception to it. It i
 not a tool: it carries no `tool.json`, and it is never part of the
 `tui-tools-all` metapackage.
 
+## companion.json
+
+`companion.json` is how [tui.tools](https://tui.tools) lists this repository.
+The site's catalog build reads it at the default branch's HEAD, the same way it
+reads a tool's `tool.json`, and renders the mirror in the Companions section
+rather than in the tool grid. It states the kind (`mirror`), the one-line
+summary, the upstream project, the upstream tag pinned in `VERSION`, and the
+package names shipped. CI fails if `upstreamVersion` and `VERSION` disagree, and
+the bump workflow moves both in one commit.
+
 ## What ships
 
 `headscale` for linux amd64 + arm64 as `.deb`, `.rpm` and archlinux
