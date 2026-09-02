@@ -22,6 +22,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # companion.json is what the family website publishes about this mirror,
+      # so the version it states has to be the version we actually vendor.
+      - name: companion.json must state the pinned VERSION
+        run: |
+          pinned="$(tr -d '[:space:]' < VERSION)"
+          stated="$(jq -r .upstreamVersion companion.json)"
+          if [ "$pinned" != "$stated" ]; then
+            echo "companion.json says $stated, VERSION says $pinned" >&2
+            exit 1
+          fi
       - name: vendor the pinned headscale source
         run: scripts/vendor-headscale.sh
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
