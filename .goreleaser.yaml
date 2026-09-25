@@ -9,18 +9,30 @@ builds:
     dir: src
     main: ./cmd/headscale
     binary: headscale
-    env: [CGO_ENABLED=0]
+    # The hardened go.mod/go.sum (scripts/harden-deps.sh) are read from
+    # outside src/, so the upstream checkout stays byte-for-byte the tag.
+    # Relative to `dir`, which is where go runs.
+    env: [CGO_ENABLED=0, GOFLAGS=-modfile=../hardened/go.mod]
     goos: [linux]
     goarch: [amd64, arm64]
     flags: [-buildmode=pie, -trimpath]
+    # headscale has no version variable to set: it reads its version, commit
+    # and build time from Go's VCS stamping (debug.ReadBuildInfo), which is why
+    # src/ must stay clean -- any change there stamps `+dirty`. The ldflags are
+    # the ones upstream's own release build uses; scripts/check-version-stamp.sh
+    # proves the result reports the pinned tag.
     ldflags:
-      - -X main.version={{ .Version }}
+      - -s -w
 archives:
   - id: headscale
     formats: [tar.gz]
     name_template: "headscale_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 checksum:
   name_template: checksums.txt
+  # The one deliberate difference from upstream -- the lifted dependency floor
+  # -- ships next to the packages, covered by the signed checksum list.
+  extra_files:
+    - glob: ./hardened/dependency-floor.diff
 nfpms:
   - id: headscale
     package_name: headscale
@@ -87,7 +99,14 @@ release:
     owner: tui-tools
     name: headscale
   # A mirror release note: what upstream tag this build compiled.
+  extra_files:
+    - glob: ./hardened/dependency-floor.diff
   header: |
     A tui-tools mirror of headscale {{ .Tag }}, built from the upstream source
     at that tag and re-released with our own checksums, SBOM, keyless cosign
     signature and build provenance. Not affiliated with the headscale project.
+
+    The upstream source is compiled unmodified, so `headscale version` reports
+    {{ .Tag }} and the upstream commit. The only difference is a lifted
+    dependency floor (security patch versions, current Go), applied through an
+    out-of-tree go.mod and listed in `dependency-floor.diff` on this release.

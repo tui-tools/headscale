@@ -47,6 +47,11 @@ jobs:
         with:
           version: "~> v2"
           args: release --snapshot --clean --skip=sign,sbom,publish
+      # headscale reports whatever Go's VCS stamp says, so a build from a
+      # modified tree ships as `+dirty`. Fail here rather than find out from a
+      # user's `headscale version`.
+      - name: the binaries report the pinned tag, clean
+        run: scripts/check-version-stamp.sh
       # Informational only: govulncheck runs against UPSTREAM headscale's source,
       # whose findings we do not control. A finding must not make the mirror
       # unbuildable, so this never gates the build; it is recorded for the record.
@@ -54,7 +59,7 @@ jobs:
         continue-on-error: true
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
-          (cd src && "$(go env GOPATH)/bin/govulncheck" ./... || true)
+          (cd src && GOFLAGS=-modfile=../hardened/go.mod "$(go env GOPATH)/bin/govulncheck" ./... || true)
 
   release:
     name: release
@@ -99,6 +104,8 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: the binaries report the pinned tag, clean
+        run: scripts/check-version-stamp.sh
       - name: attest build provenance
         id: attest
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2

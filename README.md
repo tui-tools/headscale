@@ -25,6 +25,20 @@ repositories through the same gate as any tool — with no exception to it. It i
 not a tool: it carries no `tool.json`, and it is never part of the
 `tui-tools-all` metapackage.
 
+## The version it reports
+
+headscale takes its version from Go's VCS stamping, not from a build flag, so
+the version string says whether the tree it was compiled from was the tag.
+The mirror keeps it that way: `src/` is the upstream tag, untouched, and the
+one deliberate change -- a lifted dependency floor (`scripts/harden-deps.sh`:
+security patch versions and the current Go) -- lives in an out-of-tree
+`go.mod` read through `-modfile`. `headscale version` therefore reports the
+upstream tag and commit (`v0.29.4`, not `v0.29.4+dirty`), CI fails a build
+whose binaries say otherwise (`scripts/check-version-stamp.sh`), and each
+release carries `dependency-floor.diff`, the exact go.mod change, under the
+signed `checksums.txt`. `go version -m /usr/bin/headscale` lists the module
+versions actually compiled in.
+
 ## companion.json
 
 `companion.json` is how [tui.tools](https://tui.tools) lists this repository.
