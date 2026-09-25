@@ -3,6 +3,8 @@
   "kind": "mirror",
   "summary": "Self-hosted Tailscale control server, rebuilt from the upstream source tag",
   "upstream": "https://github.com/juanfont/headscale",
-  "upstreamVersion": "v0.29.3",
-  "packages": ["headscale"]
+  "upstreamVersion": "v0.29.4",
+  "packages": [
+    "headscale"
+  ]
 }
