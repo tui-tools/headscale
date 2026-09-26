@@ -3,7 +3,7 @@
 A source-built mirror of [headscale](https://github.com/juanfont/headscale), the
 open-source Tailscale control server, re-released into the tui-tools package
 repository for the `tui-router` coordination server. Managed on a router by
-`tui-vpn`.
+[`tui-tailscale`](https://tui.tools/tools/tui-tailscale/).
 
 This is **not** a fork and **not** the headscale project. It holds no headscale
 source of its own: CI vendors the pinned upstream tag

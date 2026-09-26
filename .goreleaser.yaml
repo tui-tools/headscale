@@ -44,7 +44,8 @@ nfpms:
     description: |-
       Open source implementation of the Tailscale control server (headscale).
       Built from source and re-released by the tui-tools family under its own
-      signature for the tui-router coordination server. Managed by tui-vpn.
+      signature for the tui-router coordination server. Managed by tui-tailscale
+      (https://tui.tools/tools/tui-tailscale/).
     section: net
     priority: optional
     bindir: /usr/bin
