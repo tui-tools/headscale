@@ -1,14 +1,28 @@
 # Watch upstream headscale for a new release and open a PR bumping VERSION. A
 # human merges it, which is the signal to tag a mirror release. Read-only
 # against upstream; opens a PR, never pushes to main.
+#
+# Idempotent: every run rebuilds the bump commit on top of the current main and
+# either reuses the remote bump branch (when it already carries the target
+# version) or moves it with --force-with-lease, then opens the PR only if none
+# is open. A dry run (workflow_dispatch with dry_run) reports what it would do
+# and pushes nothing.
 name: bump
 on:
   schedule:
     - cron: "0 6 * * *"
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only report what would change; push nothing, open no PR"
+        type: boolean
+        default: false
 permissions:
   contents: write
   pull-requests: write
+concurrency:
+  group: bump
+  cancel-in-progress: false
 jobs:
   bump:
     runs-on: ubuntu-latest
@@ -17,6 +31,9 @@ jobs:
       - name: check upstream and open a bump PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run || false }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
         run: |
           set -euo pipefail
           latest="$(gh release view -R juanfont/headscale --json tagName -q .tagName)"
@@ -25,17 +42,67 @@ jobs:
             echo "up to date at $pinned"; exit 0
           fi
           branch="bump-headscale-$latest"
+          title="bump headscale $pinned -> $latest"
+          echo "upstream $latest, pinned $pinned, branch $branch"
+
+          # A PR for this branch that was closed without merging means a human
+          # declined this version: do not reopen it every day.
+          declined="$(gh pr list -R "$REPO" --head "$branch" --state closed \
+            --json number,mergedAt -q '[.[] | select(.mergedAt == null)][0].number // empty')"
+          if [ -n "$declined" ]; then
+            echo "::warning::PR #$declined for $branch was closed without merging; not reopening it. Delete the branch or reopen the PR to retry."
+            exit 0
+          fi
+
           git config user.name "tui-tools-bot"
           git config user.email "bot@tui.tools"
-          git checkout -b "$branch"
+          git checkout -B "$branch"
           printf '%s\n' "$latest" > VERSION
           # companion.json states the same pinned tag to the family website, so
           # it moves in the same commit and never advertises a stale version.
           jq --arg v "$latest" '.upstreamVersion = $v' companion.json > companion.json.next
           mv companion.json.next companion.json
           git add VERSION companion.json
-          git commit -m "bump headscale $pinned -> $latest"
-          git push -u origin "$branch"
-          gh pr create --title "bump headscale $pinned -> $latest" \
+          git commit -m "$title"
+
+          # Reuse the remote branch when it already carries this bump; otherwise
+          # move it to the fresh commit. --force-with-lease pins the exact remote
+          # sha we saw, so a concurrent human push is never clobbered.
+          remote_sha="$(git ls-remote --heads origin "$branch" | cut -f1)"
+          push=true
+          if [ -n "$remote_sha" ]; then
+            git fetch --no-tags origin "$branch"
+            remote_version="$(git show "$remote_sha:VERSION" | tr -d '[:space:]')"
+            if [ "$remote_version" = "$latest" ] && git merge-base --is-ancestor origin/main "$remote_sha"; then
+              echo "remote $branch ($remote_sha) already carries $latest on top of main; reusing it"
+              push=false
+            fi
+          fi
+
+          open_pr="$(gh pr list -R "$REPO" --head "$branch" --state open --json url -q '.[0].url // empty')"
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "dry run: push branch=$push (remote sha: ${remote_sha:-none}), open PR: ${open_pr:-none, would create one}"
+            exit 0
+          fi
+
+          if [ "$push" = "true" ]; then
+            git push --force-with-lease="refs/heads/$branch:$remote_sha" origin "HEAD:refs/heads/$branch"
+          fi
+
+          if [ -n "$open_pr" ]; then
+            echo "PR already open: $open_pr"; exit 0
+          fi
+
+          if ! out="$(gh pr create --title "$title" \
             --body "Upstream headscale released \`$latest\`. Merging this and tagging \`$latest\` cuts a mirror release built from that source." \
-            --base main --head "$branch"
+            --base main --head "$branch" 2>&1)"; then
+            echo "$out"
+            if printf '%s' "$out" | grep -q "not permitted to create or approve pull requests"; then
+              echo "::error::GitHub refused the PR: Actions may not create pull requests here. Enable 'Allow GitHub Actions to create and approve pull requests' under Settings > Actions > General > Workflow permissions, first for the org (https://github.com/organizations/$OWNER/settings/actions), then for the repo (https://github.com/$REPO/settings/actions). Branch $branch is pushed; open the PR by hand meanwhile: https://github.com/$REPO/compare/main...$branch?expand=1"
+            else
+              echo "::error::gh pr create failed for $branch (see output above). Open it by hand: https://github.com/$REPO/compare/main...$branch?expand=1"
+            fi
+            exit 1
+          fi
+          echo "opened $out"
