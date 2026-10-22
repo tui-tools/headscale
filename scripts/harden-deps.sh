@@ -42,7 +42,8 @@ go get -u \
   golang.org/x/crypto@latest \
   golang.org/x/text@latest \
   golang.org/x/net@latest \
-  google.golang.org/grpc@latest
+  google.golang.org/grpc@latest \
+  github.com/klauspost/compress@latest
 go mod tidy
 
 # The upstream tree must still be exactly the tag. If anything above wrote
@@ -59,5 +60,6 @@ diff -u --label "upstream/go.mod" --label "hardened/go.mod" \
   go.mod "$hardened/go.mod" > "$hardened/dependency-floor.diff" || true
 
 echo "hardened dependency floor:"
-go list -m golang.org/x/crypto golang.org/x/text golang.org/x/net google.golang.org/grpc
+go list -m golang.org/x/crypto golang.org/x/text golang.org/x/net google.golang.org/grpc \
+  github.com/klauspost/compress
 go version
