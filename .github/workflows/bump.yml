@@ -58,11 +58,13 @@ jobs:
           git config user.email "bot@tui.tools"
           git checkout -B "$branch"
           printf '%s\n' "$latest" > VERSION
+          # A new upstream tag starts again at package revision 1.
+          sed -i -E 's/^(    release: )"[0-9]+"$/\1"1"/' .goreleaser.yaml
           # companion.json states the same pinned tag to the family website, so
           # it moves in the same commit and never advertises a stale version.
           jq --arg v "$latest" '.upstreamVersion = $v' companion.json > companion.json.next
           mv companion.json.next companion.json
-          git add VERSION companion.json
+          git add VERSION companion.json .goreleaser.yaml
           git commit -m "$title"
 
           # Reuse the remote branch when it already carries this bump; otherwise
