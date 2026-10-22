@@ -65,3 +65,10 @@ The version is pinned in `VERSION` (e.g. `v0.29.3`). To cut a mirror release,
 bump `VERSION` to an upstream tag and push a matching git tag; CI verifies the
 tag equals `VERSION`, vendors that upstream source, and releases. A scheduled
 job opens the bump PR when upstream publishes a new release.
+
+`PKG_RELEASE` holds the package revision of that version (the deb `-N`, the
+rpm Release, the pacman pkgrel), 1 for a new upstream tag; the bump PR resets
+it. To rebuild the same upstream tag (a Go release or a dependency floor that
+clears a CVE), raise `PKG_RELEASE` and re-tag `VERSION`: pkgs.tui.tools keeps
+the bytes it already published under a file name, and installed systems only
+upgrade to a higher revision.

@@ -37,6 +37,12 @@ nfpms:
   - id: headscale
     package_name: headscale
     file_name_template: "{{ .ConventionalFileName }}"
+    # The package revision (deb -N, rpm Release, pacman pkgrel), from the
+    # PKG_RELEASE file. A rebuild of the same upstream tag (a new Go, a lifted
+    # dependency floor) needs a new revision: pkgs.tui.tools keeps the bytes it
+    # already published under a file name, and installed systems only upgrade
+    # to a higher version-revision.
+    release: '{{ envOrDefault "PKG_RELEASE" "1" }}'
     vendor: tui-tools
     maintainer: tui-tools <pkgs@tui.tools>
     homepage: https://github.com/juanfont/headscale
