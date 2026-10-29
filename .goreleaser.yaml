@@ -43,7 +43,7 @@ nfpms:
     # file name, and installed systems only upgrade to a higher
     # version-revision. GoReleaser does not template this field, so the number
     # lives here; bump.yml resets it to 1 with each new upstream tag.
-    release: "2"
+    release: "1"
     vendor: tui-tools
     maintainer: tui-tools <pkgs@tui.tools>
     homepage: https://github.com/juanfont/headscale
