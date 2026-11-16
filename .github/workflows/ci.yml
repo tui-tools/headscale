@@ -32,6 +32,10 @@ jobs:
             echo "companion.json says $stated, VERSION says $pinned" >&2
             exit 1
           fi
+      # The vendor step is what refuses a moved upstream tag, so its own
+      # behaviour is tested against a local throwaway repository first.
+      - name: the vendor pin refuses a moved tag
+        run: scripts/test-vendor.sh
       - name: vendor the pinned headscale source
         run: scripts/vendor-headscale.sh
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -55,10 +59,14 @@ jobs:
       # Informational only: govulncheck runs against UPSTREAM headscale's source,
       # whose findings we do not control. A finding must not make the mirror
       # unbuildable, so this never gates the build; it is recorded for the record.
+      # Pinned like everything else the job runs: @latest would make the
+      # result depend on the day. Bump it when golang/vuln cuts a release.
       - name: govulncheck (informational)
         continue-on-error: true
+        env:
+          GOVULNCHECK_VERSION: "v1.7.0"
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}"
           (cd src && GOFLAGS=-modfile=../hardened/go.mod "$(go env GOPATH)/bin/govulncheck" ./... || true)
 
   release:
