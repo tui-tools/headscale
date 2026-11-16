@@ -56,15 +56,28 @@ jobs:
 
           git config user.name "tui-tools-bot"
           git config user.email "bot@tui.tools"
+          # The commit the tag points at now is pinned beside it. The vendor
+          # step builds only that commit, so a tag moved after this PR is
+          # reviewed stops the build instead of changing what is released.
+          upstream="https://github.com/juanfont/headscale.git"
+          commit="$(git ls-remote "$upstream" "refs/tags/$latest^{}" | awk '{print $1}')"
+          [ -z "$commit" ] && commit="$(git ls-remote "$upstream" "refs/tags/$latest" | awk '{print $1}')"
+          if ! [[ "$commit" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::could not resolve upstream tag $latest to a commit"
+            exit 1
+          fi
+          echo "upstream $latest is commit $commit"
+
           git checkout -B "$branch"
           printf '%s\n' "$latest" > VERSION
+          printf '%s\n' "$commit" > UPSTREAM_COMMIT
           # A new upstream tag starts again at package revision 1.
           sed -i -E 's/^(    release: )"[0-9]+"$/\1"1"/' .goreleaser.yaml
           # companion.json states the same pinned tag to the family website, so
           # it moves in the same commit and never advertises a stale version.
           jq --arg v "$latest" '.upstreamVersion = $v' companion.json > companion.json.next
           mv companion.json.next companion.json
-          git add VERSION companion.json .goreleaser.yaml
+          git add VERSION UPSTREAM_COMMIT companion.json .goreleaser.yaml
           git commit -m "$title"
 
           # Reuse the remote branch when it already carries this bump; otherwise
@@ -75,7 +88,10 @@ jobs:
           if [ -n "$remote_sha" ]; then
             git fetch --no-tags origin "$branch"
             remote_version="$(git show "$remote_sha:VERSION" | tr -d '[:space:]')"
-            if [ "$remote_version" = "$latest" ] && git merge-base --is-ancestor origin/main "$remote_sha"; then
+            remote_commit="$(git show "$remote_sha:UPSTREAM_COMMIT" 2>/dev/null | tr -d '[:space:]' || true)"
+            # The branch is reused only when it pins the same commit too: a
+            # tag that moved since the branch was pushed gets a fresh bump.
+            if [ "$remote_version" = "$latest" ] && [ "$remote_commit" = "$commit" ] && git merge-base --is-ancestor origin/main "$remote_sha"; then
               echo "remote $branch ($remote_sha) already carries $latest on top of main; reusing it"
               push=false
             fi
@@ -97,7 +113,7 @@ jobs:
           fi
 
           if ! out="$(gh pr create --title "$title" \
-            --body "Upstream headscale released \`$latest\`. Merging this and tagging \`$latest\` cuts a mirror release built from that source." \
+            --body "Upstream headscale released \`$latest\`, which points at commit \`$commit\` (https://github.com/juanfont/headscale/commit/$commit). Review that commit: CI builds only it, and fails if the tag moves. Merging this and tagging \`$latest\` cuts a mirror release built from that source." \
             --base main --head "$branch" 2>&1)"; then
             echo "$out"
             if printf '%s' "$out" | grep -q "not permitted to create or approve pull requests"; then

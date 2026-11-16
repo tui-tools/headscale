@@ -61,10 +61,19 @@ place.
 
 ## Releasing
 
-The version is pinned in `VERSION` (e.g. `v0.29.3`). To cut a mirror release,
-bump `VERSION` to an upstream tag and push a matching git tag; CI verifies the
-tag equals `VERSION`, vendors that upstream source, and releases. A scheduled
-job opens the bump PR when upstream publishes a new release.
+The version is pinned in `VERSION` (e.g. `v0.29.3`), and the upstream commit
+that tag points at is pinned in `UPSTREAM_COMMIT` (the full 40-character SHA).
+To cut a mirror release, bump both to an upstream tag and its commit and push a
+matching git tag; CI verifies the tag equals `VERSION`, vendors that upstream
+source, and releases. A scheduled job opens the bump PR when upstream publishes
+a new release, with the commit in the PR so it can be reviewed.
+
+A tag is a name upstream can move. `scripts/vendor-headscale.sh` therefore
+builds only the pinned commit: if the tag resolves to anything else, in the
+clone or on the remote, the vendor step fails and nothing is built or released.
+If upstream moved a tag on purpose, review the new commit and change
+`UPSTREAM_COMMIT` in a PR. `scripts/test-vendor.sh` checks this against a local
+throwaway repository and runs in CI.
 
 The nfpm `release:` in `.goreleaser.yaml` is the package revision of that
 version (the deb `-N`, the rpm Release, the pacman pkgrel), 1 for a new
