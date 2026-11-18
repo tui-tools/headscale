@@ -3,7 +3,9 @@
 # the Go toolchain) far enough to clear every HIGH/CRITICAL the package scanner
 # flags in the compiled binary. This is the point of building from source: an
 # upstream tag pins what it pins, but what WE ship is compiled here, so a
-# vulnerable transitive dependency is ours to lift. Patch versions only -- the
+# vulnerable transitive dependency is ours to lift. Patch versions where a fix
+# exists; where a dependency has no fixed release, the module that pulls it in
+# is moved to a pinned commit that no longer does (see go-jose/v3 below). The
 # headscale code itself is not touched.
 #
 # The upstream checkout under src/ is never modified. The lifted go.mod and
@@ -43,8 +45,27 @@ go get -u \
   golang.org/x/text@latest \
   golang.org/x/net@latest \
   google.golang.org/grpc@latest \
-  github.com/klauspost/compress@latest
+  github.com/klauspost/compress@latest \
+  github.com/go-jose/go-jose/v4@latest
+
+# go-jose/v3 has no release that fixes CVE-2026-116587 and never will (v3 is
+# end of life), so it cannot be lifted, only dropped. The one module that
+# pulls it in is oauth2-proxy/mockoidc, behind `headscale mockoidc`. Its
+# commit of 2026-11-03 moved to go-jose/v4 with the same public API that
+# headscale calls. mockoidc has no tags, so @latest would follow whatever its
+# default branch holds on the day; the commit is pinned instead, and a later
+# one is a reviewed change to this line.
+go get github.com/oauth2-proxy/mockoidc@v0.0.0-20261103160011-e06ed0b7cb7f
 go mod tidy
+
+# The floor above is only worth something if v3 is really gone from the
+# build: a later upstream tag that imports it again must fail here, not in
+# the package scan.
+if go list -deps ./cmd/headscale | grep -q '^github.com/go-jose/go-jose/v3'; then
+  echo "harden-deps: github.com/go-jose/go-jose/v3 is still linked into headscale:" >&2
+  go mod why -m github.com/go-jose/go-jose/v3 >&2
+  exit 1
+fi
 
 # The upstream tree must still be exactly the tag. If anything above wrote
 # into src/, the stamp would say +dirty again; stop here instead.
@@ -61,5 +82,5 @@ diff -u --label "upstream/go.mod" --label "hardened/go.mod" \
 
 echo "hardened dependency floor:"
 go list -m golang.org/x/crypto golang.org/x/text golang.org/x/net google.golang.org/grpc \
-  github.com/klauspost/compress
+  github.com/klauspost/compress github.com/go-jose/go-jose/v4 github.com/oauth2-proxy/mockoidc
 go version

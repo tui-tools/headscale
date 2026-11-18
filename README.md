@@ -31,7 +31,8 @@ headscale takes its version from Go's VCS stamping, not from a build flag, so
 the version string says whether the tree it was compiled from was the tag.
 The mirror keeps it that way: `src/` is the upstream tag, untouched, and the
 one deliberate change -- a lifted dependency floor (`scripts/harden-deps.sh`:
-security patch versions and the current Go) -- lives in an out-of-tree
+security patch versions, a pinned newer commit of a module whose old one
+linked an end-of-life dependency, and the current Go) -- lives in an out-of-tree
 `go.mod` read through `-modfile`. `headscale version` therefore reports the
 upstream tag and commit (`v0.29.4`, not `v0.29.4+dirty`), CI fails a build
 whose binaries say otherwise (`scripts/check-version-stamp.sh`), and each
